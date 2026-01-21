@@ -571,3 +571,473 @@ h3 {
         height: 400px;
     }
 }
+
+/* Мобильное управление */
+.mobile-controls {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: 40%;
+    pointer-events: none;
+    z-index: 1000;
+    display: flex;
+    justify-content: space-between;
+    padding: 20px;
+    box-sizing: border-box;
+}
+
+.mobile-controls > * {
+    pointer-events: auto;
+}
+
+/* Джойстик */
+.joystick-container {
+    position: relative;
+    width: 150px;
+    height: 150px;
+}
+
+.joystick-background {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    border: 3px solid rgba(255, 255, 255, 0.3);
+    border-radius: 50%;
+    box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+}
+
+.joystick-handle {
+    position: absolute;
+    width: 60px;
+    height: 60px;
+    background: rgba(255, 85, 85, 0.8);
+    border: 2px solid rgba(255, 255, 255, 0.5);
+    border-radius: 50%;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    box-shadow: 0 0 10px rgba(255, 85, 85, 0.5);
+    transition: transform 0.1s;
+}
+
+/* Кнопки действий */
+.action-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    align-items: flex-end;
+    margin-top: auto;
+}
+
+.action-btn {
+    width: 70px;
+    height: 70px;
+    border-radius: 50%;
+    border: none;
+    font-size: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: manipulation;
+    transition: all 0.1s;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+}
+
+.action-btn:active {
+    transform: scale(0.9);
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+}
+
+.pause-btn {
+    background: linear-gradient(135deg, #ffaa00, #ff6600);
+    color: white;
+}
+
+.chat-btn {
+    background: linear-gradient(135deg, #5555ff, #0000cc);
+    color: white;
+}
+
+.run-btn {
+    background: linear-gradient(135deg, #55ff55, #00cc00);
+    color: white;
+    font-size: 28px;
+}
+
+.interact-btn {
+    background: linear-gradient(135deg, #ff55ff, #cc00cc);
+    color: white;
+    font-size: 28px;
+}
+
+/* Быстрый чат */
+.quick-chat {
+    position: absolute;
+    bottom: 100px;
+    right: 20px;
+    background: rgba(0, 0, 0, 0.8);
+    border: 2px solid #444;
+    border-radius: 10px;
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    min-width: 200px;
+}
+
+.quick-chat-btn {
+    background: rgba(50, 50, 50, 0.8);
+    color: white;
+    border: 1px solid #666;
+    border-radius: 5px;
+    padding: 8px 12px;
+    cursor: pointer;
+    font-size: 14px;
+    text-align: left;
+    transition: background 0.2s;
+}
+
+.quick-chat-btn:active {
+    background: rgba(85, 85, 255, 0.8);
+}
+
+/* Виртуальная клавиатура */
+.virtual-keyboard {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    background: rgba(20, 20, 20, 0.95);
+    border-top: 2px solid #444;
+    padding: 10px;
+    z-index: 1001;
+    transform: translateY(100%);
+    transition: transform 0.3s;
+}
+
+.virtual-keyboard.show {
+    transform: translateY(0);
+}
+
+.keyboard-container {
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+.keyboard-row {
+    display: flex;
+    justify-content: center;
+    margin: 5px 0;
+}
+
+.key {
+    background: #333;
+    color: white;
+    border: 1px solid #555;
+    border-radius: 5px;
+    padding: 10px 8px;
+    margin: 0 2px;
+    min-width: 30px;
+    height: 50px;
+    font-size: 16px;
+    cursor: pointer;
+    user-select: none;
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.1s;
+}
+
+.key:active {
+    background: #555;
+    transform: scale(0.95);
+}
+
+.key.shift,
+.key.backspace,
+.key.enter {
+    background: #555;
+    font-weight: bold;
+}
+
+.key.space {
+    flex: 4;
+}
+
+.key.enter {
+    flex: 2;
+    background: #4CAF50;
+}
+
+/* Туториал */
+.mobile-tutorial {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.9);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 2000;
+}
+
+.tutorial-content {
+    background: rgba(30, 30, 30, 0.95);
+    border: 3px solid #ff5555;
+    border-radius: 15px;
+    padding: 30px;
+    max-width: 400px;
+    width: 90%;
+    text-align: center;
+}
+
+.tutorial-item {
+    display: flex;
+    align-items: center;
+    margin: 20px 0;
+    padding: 10px;
+    background: rgba(50, 50, 50, 0.5);
+    border-radius: 10px;
+}
+
+.tutorial-icon {
+    width: 50px;
+    height: 50px;
+    background: rgba(255, 85, 85, 0.8);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 20px;
+    font-size: 24px;
+}
+
+.tutorial-btn {
+    background: linear-gradient(135deg, #ff5555, #cc0000);
+    color: white;
+    border: none;
+    border-radius: 5px;
+    padding: 12px 30px;
+    font-size: 18px;
+    cursor: pointer;
+    margin-top: 20px;
+    width: 100%;
+}
+
+/* Адаптивные стили для мобильных устройств */
+@media (max-width: 768px) {
+    /* Скрываем элементы десктопного интерфейса */
+    .side-panel,
+    #chat,
+    #playerList {
+        display: none !important;
+    }
+    
+    .game-header {
+        padding: 5px 10px;
+        font-size: 12px;
+    }
+    
+    .stats {
+        gap: 10px;
+    }
+    
+    .stat-label {
+        font-size: 10px;
+    }
+    
+    .stat-value {
+        font-size: 14px;
+    }
+    
+    /* Показываем мобильное управление */
+    .mobile-controls {
+        display: flex;
+    }
+    
+    /* Увеличиваем кнопки для мобильных */
+    .action-btn {
+        width: 60px;
+        height: 60px;
+        font-size: 20px;
+    }
+    
+    .joystick-container {
+        width: 120px;
+        height: 120px;
+    }
+    
+    .joystick-handle {
+        width: 50px;
+        height: 50px;
+    }
+    
+    /* Адаптируем оверлеи */
+    .death-content,
+    .win-content {
+        padding: 20px;
+        width: 95%;
+    }
+    
+    .blood-text,
+    .win-text {
+        font-size: 24px;
+    }
+    
+    /* Улучшаем чат для мобильных */
+    #chatInput {
+        font-size: 16px; /* Увеличиваем для мобильных */
+        padding: 12px; /* Больше отступы */
+    }
+    
+    /* Виртуальная клавиатура */
+    .key {
+        padding: 8px 4px;
+        height: 45px;
+        font-size: 14px;
+        min-width: 25px;
+    }
+}
+
+/* Для очень маленьких экранов */
+@media (max-width: 480px) {
+    .joystick-container {
+        width: 100px;
+        height: 100px;
+    }
+    
+    .joystick-handle {
+        width: 40px;
+        height: 40px;
+    }
+    
+    .action-btn {
+        width: 50px;
+        height: 50px;
+        font-size: 18px;
+    }
+    
+    .action-buttons {
+        gap: 10px;
+    }
+}
+
+/* Горизонтальная ориентация (ландшафт) */
+@media (orientation: landscape) and (max-height: 500px) {
+    .mobile-controls {
+        height: 50%;
+    }
+    
+    .joystick-container {
+        width: 100px;
+        height: 100px;
+    }
+    
+    .action-btn {
+        width: 50px;
+        height: 50px;
+        font-size: 18px;
+    }
+}
+
+/* Детекция касаний */
+@media (hover: none) and (pointer: coarse) {
+    /* Увеличиваем размер тач-целей */
+    button, 
+    .action-btn,
+    .key {
+        min-height: 44px; /* Минимальный размер для тач-целей по рекомендациям Apple */
+    }
+    
+    /* Убираем ховер-эффекты */
+    button:hover {
+        transform: none;
+    }
+    
+    /* Увеличиваем зону клика для элементов интерфейса */
+    .player-item {
+        padding: 12px;
+        margin: 8px 0;
+    }
+}
+
+/* Темная тема для мобильных */
+@media (prefers-color-scheme: dark) {
+    .mobile-controls {
+        background: linear-gradient(to top, rgba(0,0,0,0.8), transparent);
+    }
+}
+
+/* Анимация появления мобильного управления */
+@keyframes slideUpControls {
+    from {
+        transform: translateY(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+.mobile-controls:not(.hidden) {
+    animation: slideUpControls 0.5s ease-out;
+}
+
+/* Индикатор работы джойстика */
+@keyframes joystickPulse {
+    0% {
+        box-shadow: 0 0 0 0 rgba(255, 85, 85, 0.7);
+    }
+    70% {
+        box-shadow: 0 0 0 10px rgba(255, 85, 85, 0);
+    }
+    100% {
+        box-shadow: 0 0 0 0 rgba(255, 85, 85, 0);
+    }
+}
+
+.joystick-background.active {
+    animation: joystickPulse 2s infinite;
+    border-color: rgba(255, 85, 85, 0.7);
+}
+
+/* Эффект нажатия для кнопок */
+@keyframes buttonPress {
+    0% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(0.9);
+    }
+    100% {
+        transform: scale(1);
+    }
+}
+
+.action-btn.pressed {
+    animation: buttonPress 0.2s;
+}
+
+/* Индикатор бега */
+@keyframes runIndicator {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.5;
+    }
+}
+
+.run-btn.active {
+    animation: runIndicator 0.5s infinite;
+    background: linear-gradient(135deg, #ffff55, #ffaa00);
+}
