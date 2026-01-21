@@ -1,0 +1,573 @@
+/* Reset и базовые стили */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Courier New', monospace;
+    background: linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 100%);
+    color: #e0e0e0;
+    height: 100vh;
+    overflow: hidden;
+    user-select: none;
+}
+
+.hidden {
+    display: none !important;
+}
+
+/* Экран старта */
+#startScreen {
+    width: 100vw;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: radial-gradient(circle at center, #111 0%, #000 100%);
+    padding: 20px;
+}
+
+.title-container {
+    text-align: center;
+    margin-bottom: 40px;
+    animation: titleGlow 3s infinite alternate;
+}
+
+@keyframes titleGlow {
+    0% { text-shadow: 0 0 10px #ff0000, 0 0 20px #ff0000; }
+    100% { text-shadow: 0 0 20px #ff0000, 0 0 40px #ff0000, 0 0 60px #ff3333; }
+}
+
+.pixel-text {
+    font-size: 48px;
+    color: #ff5555;
+    text-transform: uppercase;
+    letter-spacing: 3px;
+    margin-bottom: 10px;
+    font-weight: bold;
+}
+
+.subtitle {
+    font-size: 18px;
+    color: #aaa;
+    letter-spacing: 2px;
+}
+
+.menu-container {
+    background: rgba(20, 20, 20, 0.9);
+    border: 3px solid #333;
+    border-radius: 10px;
+    padding: 30px;
+    width: 100%;
+    max-width: 500px;
+    margin-bottom: 30px;
+}
+
+.input-group, .room-group {
+    margin-bottom: 25px;
+}
+
+label {
+    display: block;
+    margin-bottom: 8px;
+    color: #ff5555;
+    font-weight: bold;
+    font-size: 14px;
+}
+
+input {
+    width: 100%;
+    padding: 12px;
+    background: #222;
+    color: #fff;
+    border: 2px solid #444;
+    border-radius: 5px;
+    font-family: 'Courier New', monospace;
+    font-size: 16px;
+    transition: all 0.3s;
+}
+
+input:focus {
+    outline: none;
+    border-color: #ff5555;
+    box-shadow: 0 0 10px rgba(255, 85, 85, 0.3);
+}
+
+.room-input {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 15px;
+}
+
+button {
+    padding: 12px 24px;
+    background: linear-gradient(135deg, #ff5555 0%, #cc0000 100%);
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-family: 'Courier New', monospace;
+    font-weight: bold;
+    font-size: 14px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    transition: all 0.3s;
+    white-space: nowrap;
+}
+
+button:hover {
+    background: linear-gradient(135deg, #ff6666 0%, #dd0000 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(255, 85, 85, 0.4);
+}
+
+button:active {
+    transform: translateY(0);
+}
+
+.copy-btn {
+    background: linear-gradient(135deg, #5555ff 0%, #0000cc 100%);
+    width: 100%;
+    margin: 10px 0;
+}
+
+.start-btn {
+    background: linear-gradient(135deg, #55ff55 0%, #00cc00 100%);
+    width: 100%;
+    padding: 15px;
+    font-size: 18px;
+    margin-top: 20px;
+}
+
+.instructions {
+    background: rgba(20, 20, 20, 0.9);
+    border: 2px solid #444;
+    border-radius: 10px;
+    padding: 20px;
+    max-width: 500px;
+    width: 100%;
+}
+
+.instructions h3 {
+    color: #55ff55;
+    margin: 15px 0 10px 0;
+    font-size: 16px;
+}
+
+.instructions p {
+    margin: 5px 0;
+    color: #aaa;
+    font-size: 14px;
+}
+
+.warning {
+    color: #ffaa55 !important;
+    font-weight: bold;
+}
+
+.small-text {
+    font-size: 12px;
+    color: #777;
+    text-align: center;
+    margin-top: 10px;
+}
+
+.loading {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.9);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+.spinner {
+    width: 50px;
+    height: 50px;
+    border: 5px solid #333;
+    border-top: 5px solid #ff5555;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin-bottom: 20px;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* Игровой экран */
+#gameContainer {
+    width: 100vw;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+.game-header {
+    background: rgba(10, 10, 10, 0.95);
+    padding: 10px 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 2px solid #333;
+}
+
+.stats {
+    display: flex;
+    gap: 30px;
+}
+
+.stat-item {
+    display: flex;
+    flex-direction: column;
+}
+
+.stat-label {
+    color: #aaa;
+    font-size: 12px;
+    margin-bottom: 3px;
+}
+
+.stat-value {
+    color: #fff;
+    font-size: 20px;
+    font-weight: bold;
+}
+
+.room-info {
+    color: #55ff55;
+    font-size: 14px;
+}
+
+.small-btn {
+    padding: 5px 10px;
+    font-size: 12px;
+    margin-left: 10px;
+}
+
+.game-wrapper {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+}
+
+canvas {
+    flex: 1;
+    background: #111;
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+    display: block;
+}
+
+.side-panel {
+    width: 300px;
+    background: rgba(20, 20, 20, 0.95);
+    border-left: 2px solid #333;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.player-list-container, .chat-container {
+    background: rgba(30, 30, 30, 0.8);
+    border: 2px solid #444;
+    border-radius: 5px;
+    padding: 15px;
+}
+
+h3 {
+    color: #ff5555;
+    margin-bottom: 15px;
+    font-size: 16px;
+    text-align: center;
+}
+
+.player-list {
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+.player-item {
+    display: flex;
+    align-items: center;
+    padding: 8px;
+    margin: 5px 0;
+    background: rgba(40, 40, 40, 0.5);
+    border-radius: 3px;
+}
+
+.player-color {
+    width: 15px;
+    height: 15px;
+    border-radius: 50%;
+    margin-right: 10px;
+    border: 2px solid #555;
+}
+
+.pages {
+    margin-left: auto;
+    color: #55ff55;
+    font-weight: bold;
+}
+
+.chat-messages {
+    height: 200px;
+    overflow-y: auto;
+    margin-bottom: 10px;
+    padding: 10px;
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 3px;
+    font-size: 13px;
+}
+
+.chat-messages div {
+    margin: 5px 0;
+    word-wrap: break-word;
+}
+
+.system-msg {
+    color: #aaa;
+    font-style: italic;
+}
+
+.chat-input-container {
+    display: flex;
+    gap: 5px;
+}
+
+.chat-input-container input {
+    flex: 1;
+    padding: 8px;
+    font-size: 13px;
+}
+
+.send-btn {
+    padding: 8px 15px;
+    font-size: 12px;
+}
+
+/* Эффекты игры */
+.warning-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+    z-index: 50;
+}
+
+.warning-content {
+    background: rgba(255, 50, 50, 0.2);
+    border: 3px solid #ff5555;
+    padding: 30px;
+    border-radius: 10px;
+    text-align: center;
+    animation: pulseWarning 0.5s infinite alternate;
+}
+
+@keyframes pulseWarning {
+    0% { transform: scale(1); opacity: 0.8; }
+    100% { transform: scale(1.05); opacity: 1; }
+}
+
+.blink {
+    animation: blink 1s infinite;
+}
+
+@keyframes blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+
+.static-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 2px,
+        rgba(255, 255, 255, 0.05) 2px,
+        rgba(255, 255, 255, 0.05) 4px
+    );
+    pointer-events: none;
+    z-index: 40;
+    animation: staticFlicker 0.1s infinite;
+    opacity: 0;
+}
+
+@keyframes staticFlicker {
+    0%, 100% { opacity: 0; }
+    50% { opacity: 0.1; }
+}
+
+/* Оверлеи смерти/победы */
+.overlay-screen {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.9);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+}
+
+.death-content, .win-content {
+    background: rgba(30, 0, 0, 0.9);
+    border: 5px solid #ff0000;
+    padding: 40px;
+    border-radius: 15px;
+    text-align: center;
+    max-width: 500px;
+    width: 90%;
+}
+
+.win-content {
+    background: rgba(0, 30, 0, 0.9);
+    border-color: #00ff00;
+}
+
+.blood-text {
+    color: #ff0000;
+    font-size: 36px;
+    text-shadow: 0 0 10px #ff0000;
+    margin-bottom: 20px;
+}
+
+.win-text {
+    color: #00ff00;
+    font-size: 36px;
+    text-shadow: 0 0 10px #00ff00;
+    margin-bottom: 20px;
+}
+
+.overlay-screen p {
+    margin: 15px 0;
+    font-size: 18px;
+    color: #fff;
+}
+
+.overlay-screen button {
+    margin: 10px 5px;
+    min-width: 120px;
+}
+
+/* Модальное окно и пауза */
+.modal, .pause-menu {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+}
+
+.modal-content, .pause-menu {
+    background: rgba(30, 30, 30, 0.95);
+    border: 3px solid #ff5555;
+    padding: 30px;
+    border-radius: 10px;
+    text-align: center;
+    max-width: 400px;
+    width: 90%;
+}
+
+.pause-menu h2 {
+    color: #ff5555;
+    margin-bottom: 30px;
+    font-size: 32px;
+}
+
+.pause-menu button {
+    display: block;
+    width: 100%;
+    margin: 10px 0;
+}
+
+/* Скроллбар */
+::-webkit-scrollbar {
+    width: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: #222;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #ff5555;
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #ff7777;
+}
+
+/* Адаптивность */
+@media (max-width: 1024px) {
+    .game-wrapper {
+        flex-direction: column;
+    }
+    
+    .side-panel {
+        width: 100%;
+        height: 300px;
+        border-left: none;
+        border-top: 2px solid #333;
+        flex-direction: row;
+    }
+    
+    .player-list-container,
+    .chat-container {
+        flex: 1;
+    }
+    
+    .pixel-text {
+        font-size: 36px;
+    }
+    
+    .menu-container {
+        padding: 20px;
+    }
+}
+
+@media (max-width: 768px) {
+    .pixel-text {
+        font-size: 28px;
+    }
+    
+    .stats {
+        gap: 15px;
+    }
+    
+    .stat-value {
+        font-size: 16px;
+    }
+    
+    .side-panel {
+        flex-direction: column;
+        height: 400px;
+    }
+}
