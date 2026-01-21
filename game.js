@@ -24,6 +24,47 @@ let gameLoopId = null;
 let lastUpdate = Date.now();
 let pingInterval = null;
 
+// Мобильное управление
+let isMobile = false;
+let joystickActive = false;
+let joystickStartX = 0;
+let joystickStartY = 0;
+let joystickCurrentX = 0;
+let joystickCurrentY = 0;
+let joystickRadius = 60;
+let mobileButtons = {};
+
+// Настройки мобильного управления
+const MOBILE_CONFIG = {
+    MOVE_THRESHOLD: 0.1,
+    MAX_JOYSTICK_DISTANCE: 60,
+    RUN_SPEED_MULTIPLIER: 1.8,
+    TAP_THRESHOLD: 300, // мс
+    LONG_PRESS_THRESHOLD: 1000 // мс
+};
+
+// Определение мобильного устройства
+function detectMobileDevice() {
+    const userAgent = navigator.userAgent || navigator.vendor || window.opera;
+    
+    // Проверка User Agent
+    const isMobileUserAgent = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test(userAgent.toLowerCase());
+    
+    // Проверка сенсорного экрана
+    const hasTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0) || (navigator.msMaxTouchPoints > 0);
+    
+    // Проверка ширины экрана
+    const isSmallScreen = window.innerWidth <= 768;
+    
+    // Проверка ориентации
+    const isMobileOrientation = window.matchMedia("(orientation: portrait)").matches || window.matchMedia("(orientation: landscape)").matches;
+    
+    isMobile = (isMobileUserAgent && hasTouch) || (hasTouch && isSmallScreen);
+    
+    console.log('Mobile detection:', { isMobile, isMobileUserAgent, hasTouch, isSmallScreen });
+    return isMobile;
+}
+
 // Состояние игры
 let gameState = {
     started: false,
