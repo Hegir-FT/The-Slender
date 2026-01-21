@@ -24,47 +24,6 @@ let gameLoopId = null;
 let lastUpdate = Date.now();
 let pingInterval = null;
 
-// Мобильное управление
-let isMobile = false;
-let joystickActive = false;
-let joystickStartX = 0;
-let joystickStartY = 0;
-let joystickCurrentX = 0;
-let joystickCurrentY = 0;
-let joystickRadius = 60;
-let mobileButtons = {};
-
-// Настройки мобильного управления
-const MOBILE_CONFIG = {
-    MOVE_THRESHOLD: 0.1,
-    MAX_JOYSTICK_DISTANCE: 60,
-    RUN_SPEED_MULTIPLIER: 1.8,
-    TAP_THRESHOLD: 300, // мс
-    LONG_PRESS_THRESHOLD: 1000 // мс
-};
-
-// Определение мобильного устройства
-function detectMobileDevice() {
-    const userAgent = navigator.userAgent || navigator.vendor || window.opera;
-    
-    // Проверка User Agent
-    const isMobileUserAgent = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test(userAgent.toLowerCase());
-    
-    // Проверка сенсорного экрана
-    const hasTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0) || (navigator.msMaxTouchPoints > 0);
-    
-    // Проверка ширины экрана
-    const isSmallScreen = window.innerWidth <= 768;
-    
-    // Проверка ориентации
-    const isMobileOrientation = window.matchMedia("(orientation: portrait)").matches || window.matchMedia("(orientation: landscape)").matches;
-    
-    isMobile = (isMobileUserAgent && hasTouch) || (hasTouch && isSmallScreen);
-    
-    console.log('Mobile detection:', { isMobile, isMobileUserAgent, hasTouch, isSmallScreen });
-    return isMobile;
-}
-
 // Состояние игры
 let gameState = {
     started: false,
@@ -91,6 +50,29 @@ let localPlayer = {
 const keys = {};
 const inputState = { up: false, down: false, left: false, right: false };
 
+// Мобильное управление
+let isMobile = false;
+let joystickActive = false;
+let joystickStartX = 0;
+let joystickStartY = 0;
+let joystickCurrentX = 0;
+let joystickCurrentY = 0;
+let joystickRadius = 60;
+let mobileControls = null;
+let mobileButtons = {};
+let virtualKeyboard = null;
+let isRunning = false;
+let lastTouchStart = 0;
+
+// Настройки мобильного управления
+const MOBILE_CONFIG = {
+    MOVE_THRESHOLD: 0.1,
+    MAX_JOYSTICK_DISTANCE: 60,
+    RUN_SPEED_MULTIPLIER: 1.8,
+    TAP_THRESHOLD: 300,
+    LONG_PRESS_THRESHOLD: 1000
+};
+
 // DOM элементы
 const elements = {};
 
@@ -98,13 +80,20 @@ const elements = {};
 document.addEventListener('DOMContentLoaded', () => {
     initElements();
     initEventListeners();
+    detectMobileDevice();
     resizeCanvas();
+    
+    // Предотвращаем контекстное меню на долгое нажатие
+    document.addEventListener('contextmenu', (e) => {
+        if (isMobile) e.preventDefault();
+    });
 });
 
 function initElements() {
     canvas = document.getElementById('gameCanvas');
     ctx = canvas.getContext('2d');
     
+    // Основные элементы
     elements.startScreen = document.getElementById('startScreen');
     elements.gameContainer = document.getElementById('gameContainer');
     elements.loading = document.getElementById('loading');
@@ -142,10 +131,14 @@ function initElements() {
     elements.errorModal = document.getElementById('errorModal');
     elements.errorMessage = document.getElementById('errorMessage');
     elements.closeError = document.getElementById('closeError');
+    
+    // Мобильные элементы
+    mobileControls = document.getElementById('mobileControls');
+    virtualKeyboard = document.getElementById('virtualKeyboard');
 }
 
 function initEventListeners() {
-    // Управление
+    // Управление клавиатурой
     document.addEventListener('keydown', handleKeyDown);
     document.addEventListener('keyup', handleKeyUp);
     
@@ -178,55 +171,386 @@ function initEventListeners() {
     
     // Изменение размера окна
     window.addEventListener('resize', resizeCanvas);
+    window.addEventListener('orientationchange', handleOrientationChange);
 }
 
-function resizeCanvas() {
-    const container = elements.gameContainer;
-    if (!container.classList.contains('hidden')) {
-        const sidePanel = document.querySelector('.side-panel');
-        const sidePanelWidth = sidePanel ? sidePanel.offsetWidth : 300;
-        const availableWidth = window.innerWidth - sidePanelWidth - 40;
-        const availableHeight = window.innerHeight - 80; // Учет header
-        
-        const scaleX = availableWidth / CONFIG.WIDTH;
-        const scaleY = availableHeight / CONFIG.HEIGHT;
-        const scale = Math.min(scaleX, scaleY, 1.5); // Ограничиваем максимальное увеличение
-        
-        canvas.style.width = `${CONFIG.WIDTH * scale}px`;
-        canvas.style.height = `${CONFIG.HEIGHT * scale}px`;
-    }
-}
-
-function handleKeyDown(e) {
-    const key = e.key.toLowerCase();
-    keys[key] = true;
+// Определение мобильного устройства
+function detectMobileDevice() {
+    const userAgent = navigator.userAgent || navigator.vendor || window.opera;
+    const isMobileUserAgent = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini|mobile/i.test(userAgent.toLowerCase());
+    const hasTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+    const isSmallScreen = window.innerWidth <= 768;
     
-    // Управление движением
-    switch(key) {
-        case 'w': case 'arrowup': inputState.up = true; break;
-        case 's': case 'arrowdown': inputState.down = true; break;
-        case 'a': case 'arrowleft': inputState.left = true; break;
-        case 'd': case 'arrowright': inputState.right = true; break;
-        case 'enter':
-            if (!gameState.paused) {
-                elements.chatInput.focus();
-            }
-            break;
+    isMobile = (isMobileUserAgent && hasTouch) || (hasTouch && isSmallScreen);
+    
+    console.log('Mobile detection:', { 
+        isMobile, 
+        userAgent: userAgent.substring(0, 50),
+        hasTouch,
+        isSmallScreen 
+    });
+    
+    return isMobile;
+}
+
+// Инициализация мобильного управления
+function initMobileControls() {
+    if (!isMobile) return;
+    
+    console.log('Initializing mobile controls...');
+    
+    // Показываем мобильное управление
+    mobileControls.classList.remove('hidden');
+    
+    // Инициализируем джойстик
+    const joystickBackground = mobileControls.querySelector('.joystick-background');
+    const joystickHandle = mobileControls.querySelector('.joystick-handle');
+    const quickChat = mobileControls.querySelector('.quick-chat');
+    
+    // Сохраняем начальные позиции джойстика
+    const joystickRect = joystickBackground.getBoundingClientRect();
+    joystickStartX = joystickRect.left + joystickRect.width / 2;
+    joystickStartY = joystickRect.top + joystickRect.height / 2;
+    joystickRadius = joystickRect.width / 2;
+    
+    // Обработчики для джойстика
+    joystickBackground.addEventListener('touchstart', handleJoystickStart, { passive: false });
+    joystickBackground.addEventListener('touchmove', handleJoystickMove, { passive: false });
+    joystickBackground.addEventListener('touchend', handleJoystickEnd);
+    joystickBackground.addEventListener('touchcancel', handleJoystickEnd);
+    
+    // Инициализируем кнопки действий
+    mobileButtons = {
+        pause: document.getElementById('pauseMobile'),
+        chat: document.getElementById('chatMobile'),
+        run: document.getElementById('runMobile'),
+        interact: document.getElementById('interactMobile')
+    };
+    
+    // Обработчики для кнопок действий
+    mobileButtons.pause.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        togglePause();
+        animateButtonPress(mobileButtons.pause);
+    }, { passive: false });
+    
+    mobileButtons.chat.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        toggleMobileChat();
+        animateButtonPress(mobileButtons.chat);
+    }, { passive: false });
+    
+    mobileButtons.run.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        isRunning = true;
+        mobileButtons.run.classList.add('active');
+        animateButtonPress(mobileButtons.run);
+    }, { passive: false });
+    
+    mobileButtons.run.addEventListener('touchend', (e) => {
+        e.preventDefault();
+        isRunning = false;
+        mobileButtons.run.classList.remove('active');
+    });
+    
+    mobileButtons.interact.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        // Симулируем нажатие клавиши E для взаимодействия
+        simulateKeyPress('E');
+        animateButtonPress(mobileButtons.interact);
+    }, { passive: false });
+    
+    // Быстрый чат
+    const quickChatButtons = document.querySelectorAll('.quick-chat-btn');
+    quickChatButtons.forEach(btn => {
+        btn.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            const message = btn.getAttribute('data-msg');
+            sendQuickChatMessage(message);
+            quickChat.classList.add('hidden');
+            animateButtonPress(btn);
+        }, { passive: false });
+    });
+    
+    // Виртуальная клавиатура
+    const keyboardKeys = virtualKeyboard.querySelectorAll('.key');
+    keyboardKeys.forEach(key => {
+        key.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            handleVirtualKeyPress(key);
+            animateButtonPress(key);
+        }, { passive: false });
+    });
+    
+    // Туториал для мобильных
+    const tutorial = document.getElementById('mobileTutorial');
+    const closeTutorial = document.getElementById('closeTutorial');
+    
+    if (tutorial && closeTutorial) {
+        if (!localStorage.getItem('mobileTutorialShown')) {
+            setTimeout(() => {
+                tutorial.classList.remove('hidden');
+            }, 1000);
+        }
+        
+        closeTutorial.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            tutorial.classList.add('hidden');
+            localStorage.setItem('mobileTutorialShown', 'true');
+            animateButtonPress(closeTutorial);
+        }, { passive: false });
     }
+    
+    // Адаптируем интерфейс для мобильных
+    adaptInterfaceForMobile();
+    
+    console.log('Mobile controls initialized');
+}
+
+// Обработчики джойстика
+function handleJoystickStart(e) {
+    e.preventDefault();
+    joystickActive = true;
+    const joystickBackground = mobileControls.querySelector('.joystick-background');
+    joystickBackground.classList.add('active');
+    
+    const touch = e.touches[0];
+    const rect = joystickBackground.getBoundingClientRect();
+    joystickStartX = rect.left + rect.width / 2;
+    joystickStartY = rect.top + rect.height / 2;
+    joystickRadius = rect.width / 2;
+    
+    handleJoystickMove(e);
+}
+
+function handleJoystickMove(e) {
+    if (!joystickActive) return;
     
     e.preventDefault();
+    const touch = e.touches[0];
+    joystickCurrentX = touch.clientX;
+    joystickCurrentY = touch.clientY;
+    
+    // Ограничиваем движение внутри джойстика
+    const dx = joystickCurrentX - joystickStartX;
+    const dy = joystickCurrentY - joystickStartY;
+    const distance = Math.sqrt(dx * dx + dy * dy);
+    
+    let limitedX = dx;
+    let limitedY = dy;
+    
+    if (distance > joystickRadius) {
+        limitedX = (dx / distance) * joystickRadius;
+        limitedY = (dy / distance) * joystickRadius;
+    }
+    
+    // Обновляем позицию ручки джойстика
+    const joystickHandle = mobileControls.querySelector('.joystick-handle');
+    joystickHandle.style.transform = `translate(-50%, -50%) translate(${limitedX}px, ${limitedY}px)`;
+    
+    // Рассчитываем направление движения
+    const normalizedX = limitedX / joystickRadius;
+    const normalizedY = limitedY / joystickRadius;
+    
+    // Обновляем состояние ввода
+    updateMobileInput(normalizedX, normalizedY);
 }
 
-function handleKeyUp(e) {
-    const key = e.key.toLowerCase();
-    keys[key] = false;
+function handleJoystickEnd(e) {
+    e.preventDefault();
+    joystickActive = false;
+    const joystickBackground = mobileControls.querySelector('.joystick-background');
+    joystickBackground.classList.remove('active');
     
-    switch(key) {
-        case 'w': case 'arrowup': inputState.up = false; break;
-        case 's': case 'arrowdown': inputState.down = false; break;
-        case 'a': case 'arrowleft': inputState.left = false; break;
-        case 'd': case 'arrowright': inputState.right = true; break;
+    // Возвращаем ручку в центр
+    const joystickHandle = mobileControls.querySelector('.joystick-handle');
+    joystickHandle.style.transform = 'translate(-50%, -50%)';
+    
+    // Сбрасываем ввод
+    resetMobileInput();
+}
+
+function updateMobileInput(x, y) {
+    // Активируем бег если кнопка бега нажата
+    const runMultiplier = isRunning ? MOBILE_CONFIG.RUN_SPEED_MULTIPLIER : 1;
+    
+    // Обновляем состояние ввода на основе позиции джойстика
+    const threshold = MOBILE_CONFIG.MOVE_THRESHOLD;
+    
+    inputState.up = y < -threshold;
+    inputState.down = y > threshold;
+    inputState.left = x < -threshold;
+    inputState.right = x > threshold;
+    
+    // Применяем множитель скорости для бега
+    if (runMultiplier > 1) {
+        CONFIG.PLAYER_SPEED = 3 * runMultiplier;
+    } else {
+        CONFIG.PLAYER_SPEED = 3;
     }
+}
+
+function resetMobileInput() {
+    inputState.up = false;
+    inputState.down = false;
+    inputState.left = false;
+    inputState.right = false;
+    CONFIG.PLAYER_SPEED = 3;
+}
+
+function toggleMobileChat() {
+    const quickChat = mobileControls.querySelector('.quick-chat');
+    
+    if (quickChat.classList.contains('hidden')) {
+        // Показываем быстрый чат
+        quickChat.classList.remove('hidden');
+        virtualKeyboard.classList.remove('show');
+    } else {
+        // Показываем виртуальную клавиатуру для полного сообщения
+        quickChat.classList.add('hidden');
+        virtualKeyboard.classList.toggle('show');
+        
+        if (virtualKeyboard.classList.contains('show')) {
+            // Фокусируемся на поле ввода чата
+            setTimeout(() => {
+                elements.chatInput.focus();
+                // На мобильных устройствах это может вызвать нативную клавиатуру
+                // Поэтому предлагаем использовать виртуальную
+                elements.chatInput.blur();
+            }, 100);
+        }
+    }
+}
+
+function handleVirtualKeyPress(key) {
+    const chatInput = elements.chatInput;
+    const keyText = key.textContent;
+    
+    if (key.classList.contains('backspace')) {
+        chatInput.value = chatInput.value.slice(0, -1);
+    } else if (key.classList.contains('space')) {
+        chatInput.value += ' ';
+    } else if (key.classList.contains('enter')) {
+        sendChatMessage();
+        virtualKeyboard.classList.remove('show');
+    } else if (key.classList.contains('shift')) {
+        // Простая реализация смены регистра
+        const current = chatInput.value;
+        if (current.length > 0) {
+            const lastChar = current[current.length - 1];
+            if (lastChar === lastChar.toUpperCase()) {
+                chatInput.value = current.slice(0, -1) + lastChar.toLowerCase();
+            } else {
+                chatInput.value = current.slice(0, -1) + lastChar.toUpperCase();
+            }
+        }
+    } else {
+        chatInput.value += keyText;
+    }
+    
+    // Прокручиваем к концу
+    chatInput.scrollLeft = chatInput.scrollWidth;
+}
+
+function sendQuickChatMessage(message) {
+    showMessage(message, 'you');
+    
+    if (peer) {
+        broadcast({
+            type: 'chatMessage',
+            senderId: playerId,
+            senderName: localPlayer.name,
+            color: localPlayer.color,
+            message: message
+        });
+    }
+}
+
+function animateButtonPress(button) {
+    button.classList.add('pressed');
+    setTimeout(() => {
+        button.classList.remove('pressed');
+    }, 200);
+}
+
+function adaptInterfaceForMobile() {
+    // Скрываем элементы десктопного интерфейса
+    const elementsToHide = [
+        document.querySelector('.side-panel'),
+        document.getElementById('chat')
+    ];
+    
+    elementsToHide.forEach(el => {
+        if (el) el.style.display = 'none';
+    });
+    
+    // Увеличиваем шрифт для лучшей читаемости
+    document.body.style.fontSize = '16px';
+    
+    // Настраиваем канвас
+    canvas.style.width = '100%';
+    canvas.style.height = '60vh';
+    
+    // Предотвращаем масштабирование при двойном тапе
+    document.addEventListener('touchstart', (e) => {
+        if (e.touches.length > 1) {
+            e.preventDefault();
+        }
+    }, { passive: false });
+    
+    // Предотвращаем pull-to-refresh
+    document.addEventListener('touchmove', (e) => {
+        if (e.target === canvas || e.target.closest('.mobile-controls')) {
+            e.preventDefault();
+        }
+    }, { passive: false });
+    
+    // Обработка зума
+    let lastTouchDistance = 0;
+    document.addEventListener('touchstart', (e) => {
+        if (e.touches.length === 2) {
+            lastTouchDistance = Math.hypot(
+                e.touches[0].pageX - e.touches[1].pageX,
+                e.touches[0].pageY - e.touches[1].pageY
+            );
+        }
+    });
+    
+    document.addEventListener('touchmove', (e) => {
+        if (e.touches.length === 2 && (e.target === canvas || e.target.closest('.game-wrapper'))) {
+            const currentDistance = Math.hypot(
+                e.touches[0].pageX - e.touches[1].pageX,
+                e.touches[0].pageY - e.touches[1].pageY
+            );
+            
+            // Блокируем зум на канвасе
+            if (Math.abs(currentDistance - lastTouchDistance) > 10) {
+                e.preventDefault();
+            }
+        }
+    }, { passive: false });
+}
+
+function simulateKeyPress(key) {
+    const event = new KeyboardEvent('keydown', {
+        key: key,
+        code: `Key${key}`,
+        bubbles: true
+    });
+    document.dispatchEvent(event);
+}
+
+function handleOrientationChange() {
+    setTimeout(() => {
+        resizeCanvas();
+        if (isMobile && joystickActive) {
+            // Пересчитываем позиции джойстика при изменении ориентации
+            const joystickBackground = mobileControls.querySelector('.joystick-background');
+            const rect = joystickBackground.getBoundingClientRect();
+            joystickStartX = rect.left + rect.width / 2;
+            joystickStartY = rect.top + rect.height / 2;
+        }
+    }, 300);
 }
 
 // Создание комнаты
@@ -290,6 +614,9 @@ function startGame() {
     elements.startScreen.classList.add('hidden');
     elements.loading.classList.remove('hidden');
     
+    // Определяем мобильное устройство
+    detectMobileDevice();
+    
     // Инициализируем PeerJS
     const peerId = `slenderman-${roomId}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     
@@ -319,6 +646,11 @@ function startGame() {
         
         elements.loading.classList.add('hidden');
         elements.gameContainer.classList.remove('hidden');
+        
+        // Инициализируем мобильное управление если нужно
+        if (isMobile) {
+            initMobileControls();
+        }
         
         startGameLoop();
         startPingMeasurement();
@@ -481,8 +813,6 @@ function handleNetworkMessage(data, senderId) {
                 }
                 
                 updatePlayerList();
-                
-                // Проигрываем звук сбора
                 playSound('collect');
             }
             break;
@@ -786,7 +1116,11 @@ function render() {
     ctx.fillRect(0, 0, CONFIG.WIDTH, CONFIG.HEIGHT);
     
     // Рисуем сетку
-    drawGrid();
+    if (isMobile) {
+        drawSimpleGrid();
+    } else {
+        drawGrid();
+    }
     
     // Рисуем туман войны
     drawFogOfWar();
@@ -800,6 +1134,11 @@ function render() {
     // Рисуем Слендермена
     if (slenderman.visible) {
         drawSlenderman();
+    }
+    
+    // Для мобильных: рисуем индикатор джойстика
+    if (isMobile && joystickActive) {
+        drawJoystickIndicator();
     }
 }
 
@@ -817,6 +1156,28 @@ function drawGrid() {
     
     // Горизонтальные линии
     for (let y = 0; y < CONFIG.HEIGHT; y += CONFIG.TILE_SIZE) {
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(CONFIG.WIDTH, y);
+        ctx.stroke();
+    }
+}
+
+function drawSimpleGrid() {
+    // Упрощенная сетка для мобильных устройств
+    ctx.strokeStyle = '#222';
+    ctx.lineWidth = 1;
+    
+    // Вертикальные линии (каждые 4 тайла)
+    for (let x = 0; x < CONFIG.WIDTH; x += CONFIG.TILE_SIZE * 4) {
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, CONFIG.HEIGHT);
+        ctx.stroke();
+    }
+    
+    // Горизонтальные линии (каждые 4 тайла)
+    for (let y = 0; y < CONFIG.HEIGHT; y += CONFIG.TILE_SIZE * 4) {
         ctx.beginPath();
         ctx.moveTo(0, y);
         ctx.lineTo(CONFIG.WIDTH, y);
@@ -978,6 +1339,42 @@ function drawSlenderman() {
     ctx.setLineDash([]);
 }
 
+function drawJoystickIndicator() {
+    // Индикатор направления джойстика в игровом мире
+    const player = players[playerId] || localPlayer;
+    if (!player) return;
+    
+    const directionX = joystickCurrentX - joystickStartX;
+    const directionY = joystickCurrentY - joystickStartY;
+    const distance = Math.sqrt(directionX * directionX + directionY * directionY);
+    
+    if (distance < 10) return; // Слишком маленькое движение
+    
+    const normalizedX = directionX / distance;
+    const normalizedY = directionY / distance;
+    
+    // Рисуем индикатор направления от игрока
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(player.x, player.y);
+    ctx.lineTo(
+        player.x + normalizedX * 50,
+        player.y + normalizedY * 50
+    );
+    ctx.stroke();
+    
+    // Круг на конце индикатора
+    ctx.fillStyle = 'rgba(255, 85, 85, 0.3)';
+    ctx.beginPath();
+    ctx.arc(
+        player.x + normalizedX * 50,
+        player.y + normalizedY * 50,
+        10, 0, Math.PI * 2
+    );
+    ctx.fill();
+}
+
 function isPointVisible(x, y) {
     const dx = x - localPlayer.x;
     const dy = y - localPlayer.y;
@@ -991,6 +1388,40 @@ function isPlayerVisible(player) {
 
 function isPageVisible(page) {
     return isPointVisible(page.x, page.y);
+}
+
+// Обработка клавиатуры
+function handleKeyDown(e) {
+    const key = e.key.toLowerCase();
+    keys[key] = true;
+    
+    switch(key) {
+        case 'w': case 'arrowup': inputState.up = true; break;
+        case 's': case 'arrowdown': inputState.down = true; break;
+        case 'a': case 'arrowleft': inputState.left = true; break;
+        case 'd': case 'arrowright': inputState.right = true; break;
+        case 'shift': isRunning = true; break;
+        case 'enter':
+            if (!gameState.paused && !isMobile) {
+                elements.chatInput.focus();
+            }
+            break;
+    }
+    
+    if (!isMobile) e.preventDefault();
+}
+
+function handleKeyUp(e) {
+    const key = e.key.toLowerCase();
+    keys[key] = false;
+    
+    switch(key) {
+        case 'w': case 'arrowup': inputState.up = false; break;
+        case 's': case 'arrowdown': inputState.down = false; break;
+        case 'a': case 'arrowleft': inputState.left = false; break;
+        case 'd': case 'arrowright': inputState.right = false; break;
+        case 'shift': isRunning = false; break;
+    }
 }
 
 // UI функции
@@ -1053,16 +1484,23 @@ function sendChatMessage() {
     
     showMessage(message, 'you');
     
-    broadcast({
-        type: 'chatMessage',
-        senderId: playerId,
-        senderName: localPlayer.name,
-        color: localPlayer.color,
-        message: message
-    });
+    if (peer) {
+        broadcast({
+            type: 'chatMessage',
+            senderId: playerId,
+            senderName: localPlayer.name,
+            color: localPlayer.color,
+            message: message
+        });
+    }
     
     elements.chatInput.value = '';
     elements.chatInput.blur();
+    
+    // Скрываем виртуальную клавиатуру если она открыта
+    if (virtualKeyboard) {
+        virtualKeyboard.classList.remove('show');
+    }
 }
 
 function showDeathScreen() {
@@ -1133,6 +1571,14 @@ function quitToMenu() {
     elements.deathScreen.classList.add('hidden');
     elements.pauseMenu.classList.add('hidden');
     
+    if (virtualKeyboard) {
+        virtualKeyboard.classList.remove('show');
+    }
+    
+    if (mobileControls) {
+        mobileControls.classList.add('hidden');
+    }
+    
     showMessage('Вы вышли в главное меню', 'system');
 }
 
@@ -1168,7 +1614,6 @@ function startPingMeasurement() {
 // Звуковые эффекты
 function playSound(type) {
     try {
-        // Создаем простые звуковые эффекты через Web Audio API
         const audioContext = new (window.AudioContext || window.webkitAudioContext)();
         
         switch(type) {
@@ -1197,8 +1642,8 @@ function playCollectSound(audioContext) {
     oscillator.connect(gainNode);
     gainNode.connect(audioContext.destination);
     
-    oscillator.frequency.setValueAtTime(523.25, audioContext.currentTime); // C5
-    oscillator.frequency.exponentialRampToValueAtTime(1046.50, audioContext.currentTime + 0.1); // C6
+    oscillator.frequency.setValueAtTime(523.25, audioContext.currentTime);
+    oscillator.frequency.exponentialRampToValueAtTime(1046.50, audioContext.currentTime + 0.1);
     
     gainNode.gain.setValueAtTime(0.1, audioContext.currentTime);
     gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.2);
@@ -1250,10 +1695,10 @@ function playWinSound(audioContext) {
     oscillator.connect(gainNode);
     gainNode.connect(audioContext.destination);
     
-    oscillator.frequency.setValueAtTime(523.25, audioContext.currentTime); // C5
-    oscillator.frequency.setValueAtTime(659.25, audioContext.currentTime + 0.1); // E5
-    oscillator.frequency.setValueAtTime(783.99, audioContext.currentTime + 0.2); // G5
-    oscillator.frequency.setValueAtTime(1046.50, audioContext.currentTime + 0.3); // C6
+    oscillator.frequency.setValueAtTime(523.25, audioContext.currentTime);
+    oscillator.frequency.setValueAtTime(659.25, audioContext.currentTime + 0.1);
+    oscillator.frequency.setValueAtTime(783.99, audioContext.currentTime + 0.2);
+    oscillator.frequency.setValueAtTime(1046.50, audioContext.currentTime + 0.3);
     
     gainNode.gain.setValueAtTime(0.1, audioContext.currentTime);
     gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.4);
@@ -1268,9 +1713,49 @@ function showError(message) {
     elements.errorModal.classList.remove('hidden');
 }
 
-// Предупреждение о звуке
-window.addEventListener('click', () => {
-    // Активируем аудиоконтекст при первом клике пользователя
+// Адаптация размера canvas
+function resizeCanvas() {
+    const container = elements.gameContainer;
+    if (!container.classList.contains('hidden')) {
+        if (isMobile) {
+            // Для мобильных устройств
+            const headerHeight = document.querySelector('.game-header').offsetHeight;
+            const controlsHeight = mobileControls.offsetHeight;
+            const availableHeight = window.innerHeight - headerHeight - controlsHeight;
+            
+            canvas.style.width = '100%';
+            canvas.style.height = `${availableHeight}px`;
+            
+            // Обновляем размеры canvas
+            const scale = window.devicePixelRatio || 1;
+            canvas.width = canvas.offsetWidth * scale;
+            canvas.height = canvas.offsetHeight * scale;
+            
+            // Масштабируем контекст
+            ctx.scale(scale, scale);
+            
+            // Обновляем конфигурацию игры
+            CONFIG.WIDTH = canvas.offsetWidth;
+            CONFIG.HEIGHT = canvas.offsetHeight;
+        } else {
+            // Для десктопа
+            const sidePanel = document.querySelector('.side-panel');
+            const sidePanelWidth = sidePanel ? sidePanel.offsetWidth : 300;
+            const availableWidth = window.innerWidth - sidePanelWidth - 40;
+            const availableHeight = window.innerHeight - 80;
+            
+            const scaleX = availableWidth / CONFIG.WIDTH;
+            const scaleY = availableHeight / CONFIG.HEIGHT;
+            const scale = Math.min(scaleX, scaleY, 1.5);
+            
+            canvas.style.width = `${CONFIG.WIDTH * scale}px`;
+            canvas.style.height = `${CONFIG.HEIGHT * scale}px`;
+        }
+    }
+}
+
+// Активация аудиоконтекста при первом взаимодействии
+window.addEventListener('touchstart', () => {
     if (window.AudioContext && !window.audioContextActivated) {
         const audioContext = new AudioContext();
         if (audioContext.state === 'suspended') {
@@ -1278,7 +1763,29 @@ window.addEventListener('click', () => {
         }
         window.audioContextActivated = true;
     }
-});
+}, { once: true });
 
-// Адаптация canvas при изменении размера
-window.addEventListener('resize', resizeCanvas);
+window.addEventListener('click', () => {
+    if (window.AudioContext && !window.audioContextActivated) {
+        const audioContext = new AudioContext();
+        if (audioContext.state === 'suspended') {
+            audioContext.resume();
+        }
+        window.audioContextActivated = true;
+    }
+}, { once: true });
+
+// Экспорт для отладки
+window.game = {
+    CONFIG,
+    players,
+    pages,
+    slenderman,
+    localPlayer,
+    isMobile,
+    isHost,
+    peer,
+    connections
+};
+
+console.log('Game initialized. Mobile:', isMobile);
