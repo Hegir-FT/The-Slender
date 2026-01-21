@@ -160,5 +160,117 @@
     <!-- PeerJS библиотека -->
     <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
     <script src="game.js"></script>
+
+<!-- Мобильное управление -->
+<div id="mobileControls" class="mobile-controls hidden">
+    <!-- Левый джойстик для движения -->
+    <div class="joystick-container left">
+        <div class="joystick-background"></div>
+        <div class="joystick-handle"></div>
+    </div>
+    
+    <!-- Правые кнопки для действий -->
+    <div class="action-buttons">
+        <button id="pauseMobile" class="action-btn pause-btn">⏸</button>
+        <button id="chatMobile" class="action-btn chat-btn">💬</button>
+        <button id="runMobile" class="action-btn run-btn">⚡</button>
+        <button id="interactMobile" class="action-btn interact-btn">🔄</button>
+    </div>
+    
+    <!-- Кнопки быстрого чата -->
+    <div class="quick-chat hidden">
+        <button class="quick-chat-btn" data-msg="Помогите!">Помогите!</button>
+        <button class="quick-chat-btn" data-msg="Слендермен рядом!">Слендермен!</button>
+        <button class="quick-chat-btn" data-msg="Нашел страницу">Нашел страницу</button>
+        <button class="quick-chat-btn" data-msg="Иду к вам">Иду к вам</button>
+    </div>
+</div>
+
+<!-- Оверлей виртуальной клавиатуры для чата -->
+<div id="virtualKeyboard" class="virtual-keyboard hidden">
+    <div class="keyboard-container">
+        <div class="keyboard-row">
+            <button class="key">1</button>
+            <button class="key">2</button>
+            <button class="key">3</button>
+            <button class="key">4</button>
+            <button class="key">5</button>
+            <button class="key">6</button>
+            <button class="key">7</button>
+            <button class="key">8</button>
+            <button class="key">9</button>
+            <button class="key">0</button>
+        </div>
+        <div class="keyboard-row">
+            <button class="key">й</button>
+            <button class="key">ц</button>
+            <button class="key">у</button>
+            <button class="key">к</button>
+            <button class="key">е</button>
+            <button class="key">н</button>
+            <button class="key">г</button>
+            <button class="key">ш</button>
+            <button class="key">щ</button>
+            <button class="key">з</button>
+            <button class="key">х</button>
+            <button class="key">ъ</button>
+        </div>
+        <div class="keyboard-row">
+            <button class="key">ф</button>
+            <button class="key">ы</button>
+            <button class="key">в</button>
+            <button class="key">а</button>
+            <button class="key">п</button>
+            <button class="key">р</button>
+            <button class="key">о</button>
+            <button class="key">л</button>
+            <button class="key">д</button>
+            <button class="key">ж</button>
+            <button class="key">э</button>
+        </div>
+        <div class="keyboard-row">
+            <button class="key shift">⇧</button>
+            <button class="key">я</button>
+            <button class="key">ч</button>
+            <button class="key">с</button>
+            <button class="key">м</button>
+            <button class="key">и</button>
+            <button class="key">т</button>
+            <button class="key">ь</button>
+            <button class="key">б</button>
+            <button class="key">ю</button>
+            <button class="key backspace">⌫</button>
+        </div>
+        <div class="keyboard-row">
+            <button class="key space">ПРОБЕЛ</button>
+            <button class="key enter">↵</button>
+        </div>
+    </div>
+</div>
+
+<!-- Туториал для мобильного управления -->
+<div id="mobileTutorial" class="mobile-tutorial hidden">
+    <div class="tutorial-content">
+        <h3>📱 Мобильное управление</h3>
+        <div class="tutorial-item">
+            <div class="tutorial-icon joystick-icon"></div>
+            <p>Левая панель - движение</p>
+        </div>
+        <div class="tutorial-item">
+            <div class="tutorial-icon run-icon">⚡</div>
+            <p>Молния - бег (удерживайте)</p>
+        </div>
+        <div class="tutorial-item">
+            <div class="tutorial-icon chat-icon">💬</div>
+            <p>Чат - отправка сообщений</p>
+        </div>
+        <div class="tutorial-item">
+            <div class="tutorial-icon pause-icon">⏸</div>
+            <p>Пауза - меню игры</p>
+        </div>
+        <button id="closeTutorial" class="tutorial-btn">Понятно!</button>
+    </div>
+</div>
+    
 </body>
 </html>
