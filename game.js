@@ -42,8 +42,7 @@ let localPlayer = {
     collectedPages: 0,
     dead: false,
     respawnTimer: 0,
-    spectating: false,
-    lastInput: { x: 0, y: 0 }
+    spectating: false
 };
 
 // Управление
@@ -60,17 +59,13 @@ let joystickCurrentY = 0;
 let joystickRadius = 60;
 let mobileControls = null;
 let mobileButtons = {};
-let virtualKeyboard = null;
 let isRunning = false;
-let lastTouchStart = 0;
 
 // Настройки мобильного управления
 const MOBILE_CONFIG = {
-    MOVE_THRESHOLD: 0.1,
+    MOVE_THRESHOLD: 0.2,
     MAX_JOYSTICK_DISTANCE: 60,
-    RUN_SPEED_MULTIPLIER: 1.8,
-    TAP_THRESHOLD: 300,
-    LONG_PRESS_THRESHOLD: 1000
+    RUN_SPEED_MULTIPLIER: 1.8
 };
 
 // DOM элементы
@@ -82,11 +77,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initEventListeners();
     detectMobileDevice();
     resizeCanvas();
-    
-    // Предотвращаем контекстное меню на долгое нажатие
-    document.addEventListener('contextmenu', (e) => {
-        if (isMobile) e.preventDefault();
-    });
+    checkURLParams();
 });
 
 function initElements() {
@@ -134,7 +125,10 @@ function initElements() {
     
     // Мобильные элементы
     mobileControls = document.getElementById('mobileControls');
-    virtualKeyboard = document.getElementById('virtualKeyboard');
+    
+    // Устанавливаем размер canvas
+    canvas.width = CONFIG.WIDTH;
+    canvas.height = CONFIG.HEIGHT;
 }
 
 function initEventListeners() {
@@ -174,6 +168,15 @@ function initEventListeners() {
     window.addEventListener('orientationchange', handleOrientationChange);
 }
 
+function checkURLParams() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const urlRoom = urlParams.get('room');
+    if (urlRoom) {
+        elements.roomCode.value = urlRoom.toUpperCase();
+        joinRoom();
+    }
+}
+
 // Определение мобильного устройства
 function detectMobileDevice() {
     const userAgent = navigator.userAgent || navigator.vendor || window.opera;
@@ -183,21 +186,15 @@ function detectMobileDevice() {
     
     isMobile = (isMobileUserAgent && hasTouch) || (hasTouch && isSmallScreen);
     
-    console.log('Mobile detection:', { 
-        isMobile, 
-        userAgent: userAgent.substring(0, 50),
-        hasTouch,
-        isSmallScreen 
-    });
-    
+    console.log('Mobile:', isMobile, 'Touch:', hasTouch, 'Screen:', isSmallScreen);
     return isMobile;
 }
 
 // Инициализация мобильного управления
 function initMobileControls() {
-    if (!isMobile) return;
+    if (!isMobile || !mobileControls) return;
     
-    console.log('Initializing mobile controls...');
+    console.log('Инициализация мобильного управления...');
     
     // Показываем мобильное управление
     mobileControls.classList.remove('hidden');
@@ -205,19 +202,47 @@ function initMobileControls() {
     // Инициализируем джойстик
     const joystickBackground = mobileControls.querySelector('.joystick-background');
     const joystickHandle = mobileControls.querySelector('.joystick-handle');
-    const quickChat = mobileControls.querySelector('.quick-chat');
     
     // Сохраняем начальные позиции джойстика
-    const joystickRect = joystickBackground.getBoundingClientRect();
-    joystickStartX = joystickRect.left + joystickRect.width / 2;
-    joystickStartY = joystickRect.top + joystickRect.height / 2;
-    joystickRadius = joystickRect.width / 2;
+    const updateJoystickPosition = () => {
+        if (joystickBackground) {
+            const rect = joystickBackground.getBoundingClientRect();
+            joystickStartX = rect.left + rect.width / 2;
+            joystickStartY = rect.top + rect.height / 2;
+            joystickRadius = rect.width / 2;
+        }
+    };
+    
+    // Обновляем позицию джойстика при изменении размера
+    setTimeout(updateJoystickPosition, 100);
     
     // Обработчики для джойстика
-    joystickBackground.addEventListener('touchstart', handleJoystickStart, { passive: false });
-    joystickBackground.addEventListener('touchmove', handleJoystickMove, { passive: false });
-    joystickBackground.addEventListener('touchend', handleJoystickEnd);
-    joystickBackground.addEventListener('touchcancel', handleJoystickEnd);
+    const handleTouchStart = (e) => {
+        e.preventDefault();
+        joystickActive = true;
+        joystickBackground.classList.add('active');
+        updateJoystickPosition();
+        handleJoystickMove(e);
+    };
+    
+    const handleTouchMove = (e) => {
+        if (!joystickActive) return;
+        e.preventDefault();
+        handleJoystickMove(e);
+    };
+    
+    const handleTouchEnd = (e) => {
+        e.preventDefault();
+        joystickActive = false;
+        joystickBackground.classList.remove('active');
+        joystickHandle.style.transform = 'translate(-50%, -50%)';
+        resetMobileInput();
+    };
+    
+    joystickBackground.addEventListener('touchstart', handleTouchStart, { passive: false });
+    document.addEventListener('touchmove', handleTouchMove, { passive: false });
+    document.addEventListener('touchend', handleTouchEnd);
+    document.addEventListener('touchcancel', handleTouchEnd);
     
     // Инициализируем кнопки действий
     mobileButtons = {
@@ -228,37 +253,47 @@ function initMobileControls() {
     };
     
     // Обработчики для кнопок действий
-    mobileButtons.pause.addEventListener('touchstart', (e) => {
-        e.preventDefault();
-        togglePause();
-        animateButtonPress(mobileButtons.pause);
-    }, { passive: false });
+    if (mobileButtons.pause) {
+        mobileButtons.pause.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            togglePause();
+            animateButtonPress(mobileButtons.pause);
+        }, { passive: false });
+    }
     
-    mobileButtons.chat.addEventListener('touchstart', (e) => {
-        e.preventDefault();
-        toggleMobileChat();
-        animateButtonPress(mobileButtons.chat);
-    }, { passive: false });
+    if (mobileButtons.chat) {
+        mobileButtons.chat.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            toggleMobileChat();
+            animateButtonPress(mobileButtons.chat);
+        }, { passive: false });
+    }
     
-    mobileButtons.run.addEventListener('touchstart', (e) => {
-        e.preventDefault();
-        isRunning = true;
-        mobileButtons.run.classList.add('active');
-        animateButtonPress(mobileButtons.run);
-    }, { passive: false });
+    if (mobileButtons.run) {
+        mobileButtons.run.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            isRunning = true;
+            mobileButtons.run.classList.add('active');
+            CONFIG.PLAYER_SPEED = 3 * MOBILE_CONFIG.RUN_SPEED_MULTIPLIER;
+            animateButtonPress(mobileButtons.run);
+        }, { passive: false });
+        
+        mobileButtons.run.addEventListener('touchend', (e) => {
+            e.preventDefault();
+            isRunning = false;
+            mobileButtons.run.classList.remove('active');
+            CONFIG.PLAYER_SPEED = 3;
+        });
+    }
     
-    mobileButtons.run.addEventListener('touchend', (e) => {
-        e.preventDefault();
-        isRunning = false;
-        mobileButtons.run.classList.remove('active');
-    });
-    
-    mobileButtons.interact.addEventListener('touchstart', (e) => {
-        e.preventDefault();
-        // Симулируем нажатие клавиши E для взаимодействия
-        simulateKeyPress('E');
-        animateButtonPress(mobileButtons.interact);
-    }, { passive: false });
+    if (mobileButtons.interact) {
+        mobileButtons.interact.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            // Действие взаимодействия
+            simulateInteract();
+            animateButtonPress(mobileButtons.interact);
+        }, { passive: false });
+    }
     
     // Быстрый чат
     const quickChatButtons = document.querySelectorAll('.quick-chat-btn');
@@ -267,18 +302,9 @@ function initMobileControls() {
             e.preventDefault();
             const message = btn.getAttribute('data-msg');
             sendQuickChatMessage(message);
+            const quickChat = mobileControls.querySelector('.quick-chat');
             quickChat.classList.add('hidden');
             animateButtonPress(btn);
-        }, { passive: false });
-    });
-    
-    // Виртуальная клавиатура
-    const keyboardKeys = virtualKeyboard.querySelectorAll('.key');
-    keyboardKeys.forEach(key => {
-        key.addEventListener('touchstart', (e) => {
-            e.preventDefault();
-            handleVirtualKeyPress(key);
-            animateButtonPress(key);
         }, { passive: false });
     });
     
@@ -304,29 +330,12 @@ function initMobileControls() {
     // Адаптируем интерфейс для мобильных
     adaptInterfaceForMobile();
     
-    console.log('Mobile controls initialized');
-}
-
-// Обработчики джойстика
-function handleJoystickStart(e) {
-    e.preventDefault();
-    joystickActive = true;
-    const joystickBackground = mobileControls.querySelector('.joystick-background');
-    joystickBackground.classList.add('active');
-    
-    const touch = e.touches[0];
-    const rect = joystickBackground.getBoundingClientRect();
-    joystickStartX = rect.left + rect.width / 2;
-    joystickStartY = rect.top + rect.height / 2;
-    joystickRadius = rect.width / 2;
-    
-    handleJoystickMove(e);
+    console.log('Мобильное управление инициализировано');
 }
 
 function handleJoystickMove(e) {
     if (!joystickActive) return;
     
-    e.preventDefault();
     const touch = e.touches[0];
     joystickCurrentX = touch.clientX;
     joystickCurrentY = touch.clientY;
@@ -356,38 +365,13 @@ function handleJoystickMove(e) {
     updateMobileInput(normalizedX, normalizedY);
 }
 
-function handleJoystickEnd(e) {
-    e.preventDefault();
-    joystickActive = false;
-    const joystickBackground = mobileControls.querySelector('.joystick-background');
-    joystickBackground.classList.remove('active');
-    
-    // Возвращаем ручку в центр
-    const joystickHandle = mobileControls.querySelector('.joystick-handle');
-    joystickHandle.style.transform = 'translate(-50%, -50%)';
-    
-    // Сбрасываем ввод
-    resetMobileInput();
-}
-
 function updateMobileInput(x, y) {
-    // Активируем бег если кнопка бега нажата
-    const runMultiplier = isRunning ? MOBILE_CONFIG.RUN_SPEED_MULTIPLIER : 1;
-    
-    // Обновляем состояние ввода на основе позиции джойстика
     const threshold = MOBILE_CONFIG.MOVE_THRESHOLD;
     
     inputState.up = y < -threshold;
     inputState.down = y > threshold;
     inputState.left = x < -threshold;
     inputState.right = x > threshold;
-    
-    // Применяем множитель скорости для бега
-    if (runMultiplier > 1) {
-        CONFIG.PLAYER_SPEED = 3 * runMultiplier;
-    } else {
-        CONFIG.PLAYER_SPEED = 3;
-    }
 }
 
 function resetMobileInput() {
@@ -395,61 +379,11 @@ function resetMobileInput() {
     inputState.down = false;
     inputState.left = false;
     inputState.right = false;
-    CONFIG.PLAYER_SPEED = 3;
 }
 
 function toggleMobileChat() {
     const quickChat = mobileControls.querySelector('.quick-chat');
-    
-    if (quickChat.classList.contains('hidden')) {
-        // Показываем быстрый чат
-        quickChat.classList.remove('hidden');
-        virtualKeyboard.classList.remove('show');
-    } else {
-        // Показываем виртуальную клавиатуру для полного сообщения
-        quickChat.classList.add('hidden');
-        virtualKeyboard.classList.toggle('show');
-        
-        if (virtualKeyboard.classList.contains('show')) {
-            // Фокусируемся на поле ввода чата
-            setTimeout(() => {
-                elements.chatInput.focus();
-                // На мобильных устройствах это может вызвать нативную клавиатуру
-                // Поэтому предлагаем использовать виртуальную
-                elements.chatInput.blur();
-            }, 100);
-        }
-    }
-}
-
-function handleVirtualKeyPress(key) {
-    const chatInput = elements.chatInput;
-    const keyText = key.textContent;
-    
-    if (key.classList.contains('backspace')) {
-        chatInput.value = chatInput.value.slice(0, -1);
-    } else if (key.classList.contains('space')) {
-        chatInput.value += ' ';
-    } else if (key.classList.contains('enter')) {
-        sendChatMessage();
-        virtualKeyboard.classList.remove('show');
-    } else if (key.classList.contains('shift')) {
-        // Простая реализация смены регистра
-        const current = chatInput.value;
-        if (current.length > 0) {
-            const lastChar = current[current.length - 1];
-            if (lastChar === lastChar.toUpperCase()) {
-                chatInput.value = current.slice(0, -1) + lastChar.toLowerCase();
-            } else {
-                chatInput.value = current.slice(0, -1) + lastChar.toUpperCase();
-            }
-        }
-    } else {
-        chatInput.value += keyText;
-    }
-    
-    // Прокручиваем к концу
-    chatInput.scrollLeft = chatInput.scrollWidth;
+    quickChat.classList.toggle('hidden');
 }
 
 function sendQuickChatMessage(message) {
@@ -473,23 +407,14 @@ function animateButtonPress(button) {
     }, 200);
 }
 
+function simulateInteract() {
+    // Простая реализация взаимодействия
+    showMessage('Взаимодействие!', 'system');
+}
+
 function adaptInterfaceForMobile() {
-    // Скрываем элементы десктопного интерфейса
-    const elementsToHide = [
-        document.querySelector('.side-panel'),
-        document.getElementById('chat')
-    ];
-    
-    elementsToHide.forEach(el => {
-        if (el) el.style.display = 'none';
-    });
-    
     // Увеличиваем шрифт для лучшей читаемости
     document.body.style.fontSize = '16px';
-    
-    // Настраиваем канвас
-    canvas.style.width = '100%';
-    canvas.style.height = '60vh';
     
     // Предотвращаем масштабирование при двойном тапе
     document.addEventListener('touchstart', (e) => {
@@ -499,57 +424,23 @@ function adaptInterfaceForMobile() {
     }, { passive: false });
     
     // Предотвращаем pull-to-refresh
+    let startY = 0;
+    document.addEventListener('touchstart', (e) => {
+        startY = e.touches[0].clientY;
+    }, { passive: true });
+    
     document.addEventListener('touchmove', (e) => {
-        if (e.target === canvas || e.target.closest('.mobile-controls')) {
+        const currentY = e.touches[0].clientY;
+        // Если пользователь пытается тянуть вниз с самого верха - предотвращаем
+        if (startY <= 50 && currentY > startY) {
             e.preventDefault();
         }
     }, { passive: false });
-    
-    // Обработка зума
-    let lastTouchDistance = 0;
-    document.addEventListener('touchstart', (e) => {
-        if (e.touches.length === 2) {
-            lastTouchDistance = Math.hypot(
-                e.touches[0].pageX - e.touches[1].pageX,
-                e.touches[0].pageY - e.touches[1].pageY
-            );
-        }
-    });
-    
-    document.addEventListener('touchmove', (e) => {
-        if (e.touches.length === 2 && (e.target === canvas || e.target.closest('.game-wrapper'))) {
-            const currentDistance = Math.hypot(
-                e.touches[0].pageX - e.touches[1].pageX,
-                e.touches[0].pageY - e.touches[1].pageY
-            );
-            
-            // Блокируем зум на канвасе
-            if (Math.abs(currentDistance - lastTouchDistance) > 10) {
-                e.preventDefault();
-            }
-        }
-    }, { passive: false });
-}
-
-function simulateKeyPress(key) {
-    const event = new KeyboardEvent('keydown', {
-        key: key,
-        code: `Key${key}`,
-        bubbles: true
-    });
-    document.dispatchEvent(event);
 }
 
 function handleOrientationChange() {
     setTimeout(() => {
         resizeCanvas();
-        if (isMobile && joystickActive) {
-            // Пересчитываем позиции джойстика при изменении ориентации
-            const joystickBackground = mobileControls.querySelector('.joystick-background');
-            const rect = joystickBackground.getBoundingClientRect();
-            joystickStartX = rect.left + rect.width / 2;
-            joystickStartY = rect.top + rect.height / 2;
-        }
     }, 300);
 }
 
@@ -617,35 +508,54 @@ function startGame() {
     // Определяем мобильное устройство
     detectMobileDevice();
     
-    // Инициализируем PeerJS
-    const peerId = `slenderman-${roomId}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    // Генерируем уникальный ID для игрока
+    const randomId = Math.random().toString(36).substring(2, 15);
+    const peerId = `slenderman-${roomId}-${randomId}`;
     
+    console.log('Подключение к P2P сети с ID:', peerId);
+    
+    // Инициализируем PeerJS
     peer = new Peer(peerId, {
         debug: 0,
         config: {
             iceServers: [
                 { urls: 'stun:stun.l.google.com:19302' },
-                { urls: 'stun:global.stun.twilio.com:3478' }
+                { urls: 'stun:stun1.l.google.com:19302' },
+                { urls: 'stun:stun2.l.google.com:19302' }
             ]
         }
     });
     
     peer.on('open', (id) => {
+        console.log('PeerJS подключен с ID:', id);
         playerId = id;
         localPlayer.id = id;
         localPlayer.color = generatePlayerColor();
         
-        if (!isHost) {
-            // Пытаемся подключиться к хосту
-            const hostId = `slenderman-${roomId}-host`;
-            connectToPeer(hostId);
+        // Если мы создали комнату, мы хост
+        if (!isHost && connections[`slenderman-${roomId}-host`]) {
+            isHost = false;
         } else {
             isHost = true;
+            console.log('Вы хост комнаты');
+        }
+        
+        // Если мы не хост, пытаемся подключиться к хосту
+        if (!isHost) {
+            const hostId = `slenderman-${roomId}-host`;
+            console.log('Попытка подключения к хосту:', hostId);
+            connectToPeer(hostId);
+        } else {
+            // Хост инициализирует игровой мир
             initializeGameWorld();
         }
         
+        // Добавляем себя в список игроков
+        players[playerId] = { ...localPlayer };
+        
         elements.loading.classList.add('hidden');
         elements.gameContainer.classList.remove('hidden');
+        gameState.started = true;
         
         // Инициализируем мобильное управление если нужно
         if (isMobile) {
@@ -663,25 +573,52 @@ function startGame() {
     });
     
     peer.on('connection', (conn) => {
+        console.log('Новое подключение от:', conn.peer);
         setupConnection(conn);
     });
     
     peer.on('error', (err) => {
-        console.error('PeerJS ошибка:', err);
+        console.error('Ошибка PeerJS:', err);
         showError(`Ошибка соединения: ${err.type}`);
+        
+        // Если не удалось подключиться, запускаем оффлайн режим
+        if (err.type === 'peer-unavailable' || err.type === 'network') {
+            setTimeout(() => {
+                if (!gameState.started) {
+                    console.log('Запуск оффлайн режима...');
+                    startOfflineMode();
+                }
+            }, 2000);
+        }
     });
     
     peer.on('disconnected', () => {
+        console.log('PeerJS отключен');
         showError('Соединение потеряно');
     });
+}
+
+function startOfflineMode() {
+    isHost = true;
+    playerId = 'offline-player-' + Date.now();
+    localPlayer.id = playerId;
+    localPlayer.color = generatePlayerColor();
     
-    // Проверяем, есть ли параметр room в URL
-    const urlParams = new URLSearchParams(window.location.search);
-    const urlRoom = urlParams.get('room');
-    if (urlRoom && !roomId) {
-        elements.roomCode.value = urlRoom.toUpperCase();
-        joinRoom();
+    initializeGameWorld();
+    players[playerId] = { ...localPlayer };
+    
+    elements.loading.classList.add('hidden');
+    elements.gameContainer.classList.remove('hidden');
+    gameState.started = true;
+    
+    if (isMobile) {
+        initMobileControls();
     }
+    
+    startGameLoop();
+    
+    showMessage('Оффлайн режим активирован', 'system');
+    showMessage('Вы играете в одиночку', 'system');
 }
 
 function generatePlayerColor() {
@@ -691,6 +628,8 @@ function generatePlayerColor() {
 
 // Подключение к другому пиру
 function connectToPeer(peerId) {
+    console.log('Подключение к пиру:', peerId);
+    
     const conn = peer.connect(peerId, {
         reliable: true,
         serialization: 'json'
@@ -702,6 +641,7 @@ function connectToPeer(peerId) {
 // Настройка соединения
 function setupConnection(conn) {
     conn.on('open', () => {
+        console.log('Соединение установлено с:', conn.peer);
         connections[conn.peer] = conn;
         
         // Отправляем информацию о себе
@@ -738,6 +678,7 @@ function setupConnection(conn) {
     });
     
     conn.on('close', () => {
+        console.log('Соединение закрыто:', conn.peer);
         delete connections[conn.peer];
         delete players[conn.peer];
         updatePlayerList();
@@ -745,12 +686,14 @@ function setupConnection(conn) {
     });
     
     conn.on('error', (err) => {
-        console.error('Connection error:', err);
+        console.error('Ошибка соединения:', err);
     });
 }
 
 // Обработка сетевых сообщений
 function handleNetworkMessage(data, senderId) {
+    if (!data || !data.type) return;
+    
     switch(data.type) {
         case 'playerJoin':
             players[data.player.id] = data.player;
@@ -759,7 +702,7 @@ function handleNetworkMessage(data, senderId) {
             
         case 'playerUpdate':
             if (players[data.playerId]) {
-                players[data.playerId] = { ...players[data.playerId], ...data.data };
+                Object.assign(players[data.playerId], data.data);
             }
             break;
             
@@ -767,7 +710,6 @@ function handleNetworkMessage(data, senderId) {
             if (players[data.playerId]) {
                 players[data.playerId].x = data.x;
                 players[data.playerId].y = data.y;
-                players[data.playerId].lastInput = { x: data.x, y: data.y };
             }
             break;
             
@@ -823,9 +765,9 @@ function handleNetworkMessage(data, senderId) {
             
         case 'gameState':
             if (!isHost) {
-                players = data.players;
-                pages = data.pages;
-                slenderman = data.slenderman;
+                players = data.players || {};
+                pages = data.pages || [];
+                slenderman = data.slenderman || { x: 0, y: 0, visible: false, pulse: 0 };
                 
                 if (!players[playerId]) {
                     players[playerId] = {
@@ -841,8 +783,8 @@ function handleNetworkMessage(data, senderId) {
             
         case 'gameUpdate':
             if (!isHost) {
-                players = data.players;
-                slenderman = data.slenderman;
+                players = data.players || players;
+                slenderman = data.slenderman || slenderman;
             }
             break;
             
@@ -861,15 +803,23 @@ function handleNetworkMessage(data, senderId) {
 
 // Рассылка сообщения всем игрокам
 function broadcast(message) {
+    if (!peer) return;
+    
     Object.values(connections).forEach(conn => {
         if (conn.open) {
-            conn.send(message);
+            try {
+                conn.send(message);
+            } catch (err) {
+                console.error('Ошибка отправки сообщения:', err);
+            }
         }
     });
 }
 
 // Инициализация игрового мира (только у хоста)
 function initializeGameWorld() {
+    console.log('Инициализация игрового мира...');
+    
     // Создаем страницы
     pages = [];
     for (let i = 0; i < CONFIG.PAGES_TO_COLLECT; i++) {
@@ -895,10 +845,14 @@ function initializeGameWorld() {
     // Добавляем себя в список игроков
     players[playerId] = { ...localPlayer };
     gameState.started = true;
+    
+    console.log('Игровой мир инициализирован:', { pages: pages.length, slenderman });
 }
 
 // Игровой цикл
 function startGameLoop() {
+    if (gameLoopId) clearInterval(gameLoopId);
+    
     gameLoopId = setInterval(() => {
         if (gameState.paused || gameState.gameOver) return;
         
@@ -928,6 +882,8 @@ function startGameLoop() {
         updateTimers(deltaTime);
         
     }, 1000 / 60); // 60 FPS
+    
+    console.log('Игровой цикл запущен');
 }
 
 function updateLocalPlayer(deltaTime) {
@@ -957,12 +913,14 @@ function updateLocalPlayer(deltaTime) {
         localPlayer.y = Math.max(20, Math.min(CONFIG.HEIGHT - 20, localPlayer.y));
         
         // Отправляем движение другим игрокам
-        broadcast({
-            type: 'playerMove',
-            playerId: playerId,
-            x: localPlayer.x,
-            y: localPlayer.y
-        });
+        if (peer) {
+            broadcast({
+                type: 'playerMove',
+                playerId: playerId,
+                x: localPlayer.x,
+                y: localPlayer.y
+            });
+        }
         
         // Обновляем в локальном списке
         if (players[playerId]) {
@@ -996,6 +954,8 @@ function updateGameWorld(deltaTime) {
 }
 
 function updateSlenderman(deltaTime) {
+    if (!isHost) return;
+    
     slenderman.pulse += deltaTime * 2;
     
     // Находим ближайшего живого игрока
@@ -1080,11 +1040,13 @@ function checkPageCollection() {
                 page.collected = true;
                 page.collectedBy = playerId;
                 
-                broadcast({
-                    type: 'pageCollected',
-                    pageId: index,
-                    playerId: playerId
-                });
+                if (peer) {
+                    broadcast({
+                        type: 'pageCollected',
+                        pageId: index,
+                        playerId: playerId
+                    });
+                }
             }
         }
     });
@@ -1093,34 +1055,38 @@ function checkPageCollection() {
 function updateTimers(deltaTime) {
     if (localPlayer.dead && localPlayer.respawnTimer > 0) {
         localPlayer.respawnTimer -= deltaTime;
-        elements.respawnTimer.textContent = Math.ceil(localPlayer.respawnTimer);
+        if (elements.respawnTimer) {
+            elements.respawnTimer.textContent = Math.ceil(localPlayer.respawnTimer);
+        }
         
         if (localPlayer.respawnTimer <= 0) {
             localPlayer.dead = false;
             localPlayer.respawnTimer = 0;
             
-            broadcast({
-                type: 'playerRespawn',
-                playerId: playerId
-            });
+            if (peer) {
+                broadcast({
+                    type: 'playerRespawn',
+                    playerId: playerId
+                });
+            }
             
-            elements.deathScreen.classList.add('hidden');
+            if (elements.deathScreen) {
+                elements.deathScreen.classList.add('hidden');
+            }
         }
     }
 }
 
 // Отрисовка
 function render() {
+    if (!ctx) return;
+    
     // Очистка canvas
     ctx.fillStyle = '#111';
     ctx.fillRect(0, 0, CONFIG.WIDTH, CONFIG.HEIGHT);
     
     // Рисуем сетку
-    if (isMobile) {
-        drawSimpleGrid();
-    } else {
-        drawGrid();
-    }
+    drawGrid();
     
     // Рисуем туман войны
     drawFogOfWar();
@@ -1156,28 +1122,6 @@ function drawGrid() {
     
     // Горизонтальные линии
     for (let y = 0; y < CONFIG.HEIGHT; y += CONFIG.TILE_SIZE) {
-        ctx.beginPath();
-        ctx.moveTo(0, y);
-        ctx.lineTo(CONFIG.WIDTH, y);
-        ctx.stroke();
-    }
-}
-
-function drawSimpleGrid() {
-    // Упрощенная сетка для мобильных устройств
-    ctx.strokeStyle = '#222';
-    ctx.lineWidth = 1;
-    
-    // Вертикальные линии (каждые 4 тайла)
-    for (let x = 0; x < CONFIG.WIDTH; x += CONFIG.TILE_SIZE * 4) {
-        ctx.beginPath();
-        ctx.moveTo(x, 0);
-        ctx.lineTo(x, CONFIG.HEIGHT);
-        ctx.stroke();
-    }
-    
-    // Горизонтальные линии (каждые 4 тайла)
-    for (let y = 0; y < CONFIG.HEIGHT; y += CONFIG.TILE_SIZE * 4) {
         ctx.beginPath();
         ctx.moveTo(0, y);
         ctx.lineTo(CONFIG.WIDTH, y);
@@ -1400,7 +1344,7 @@ function handleKeyDown(e) {
         case 's': case 'arrowdown': inputState.down = true; break;
         case 'a': case 'arrowleft': inputState.left = true; break;
         case 'd': case 'arrowright': inputState.right = true; break;
-        case 'shift': isRunning = true; break;
+        case 'shift': isRunning = true; CONFIG.PLAYER_SPEED = 3 * MOBILE_CONFIG.RUN_SPEED_MULTIPLIER; break;
         case 'enter':
             if (!gameState.paused && !isMobile) {
                 elements.chatInput.focus();
@@ -1420,12 +1364,14 @@ function handleKeyUp(e) {
         case 's': case 'arrowdown': inputState.down = false; break;
         case 'a': case 'arrowleft': inputState.left = false; break;
         case 'd': case 'arrowright': inputState.right = false; break;
-        case 'shift': isRunning = false; break;
+        case 'shift': isRunning = false; CONFIG.PLAYER_SPEED = 3; break;
     }
 }
 
 // UI функции
 function updatePlayerList() {
+    if (!elements.playerList) return;
+    
     elements.playerList.innerHTML = '';
     
     // Добавляем локального игрока
@@ -1438,7 +1384,9 @@ function updatePlayerList() {
         }
     });
     
-    elements.playerCount.textContent = Object.keys(players).length;
+    if (elements.playerCount) {
+        elements.playerCount.textContent = Object.keys(players).length;
+    }
 }
 
 function addPlayerToList(player, isLocal) {
@@ -1455,10 +1403,14 @@ function addPlayerToList(player, isLocal) {
 }
 
 function updatePageCount() {
-    elements.pageCount.textContent = `${localPlayer.collectedPages}/${CONFIG.PAGES_TO_COLLECT}`;
+    if (elements.pageCount) {
+        elements.pageCount.textContent = `${localPlayer.collectedPages}/${CONFIG.PAGES_TO_COLLECT}`;
+    }
 }
 
 function showMessage(message, type = 'system', senderName = null, color = null) {
+    if (!elements.chatMessages) return;
+    
     const div = document.createElement('div');
     
     switch(type) {
@@ -1496,14 +1448,11 @@ function sendChatMessage() {
     
     elements.chatInput.value = '';
     elements.chatInput.blur();
-    
-    // Скрываем виртуальную клавиатуру если она открыта
-    if (virtualKeyboard) {
-        virtualKeyboard.classList.remove('show');
-    }
 }
 
 function showDeathScreen() {
+    if (!elements.deathScreen) return;
+    
     elements.deathPages.textContent = localPlayer.collectedPages;
     elements.deathScreen.classList.remove('hidden');
     playSound('death');
@@ -1519,6 +1468,8 @@ function toggleSpectate() {
 }
 
 function showWinScreen(winnerId) {
+    if (!elements.winScreen) return;
+    
     const winner = players[winnerId] || localPlayer;
     elements.winnerName.textContent = winner.name;
     elements.winnerName.style.color = winner.color;
@@ -1571,10 +1522,6 @@ function quitToMenu() {
     elements.deathScreen.classList.add('hidden');
     elements.pauseMenu.classList.add('hidden');
     
-    if (virtualKeyboard) {
-        virtualKeyboard.classList.remove('show');
-    }
-    
     if (mobileControls) {
         mobileControls.classList.add('hidden');
     }
@@ -1614,7 +1561,11 @@ function startPingMeasurement() {
 // Звуковые эффекты
 function playSound(type) {
     try {
-        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        if (!window.audioContext) {
+            window.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        }
+        
+        const audioContext = window.audioContext;
         
         switch(type) {
             case 'collect':
@@ -1631,7 +1582,7 @@ function playSound(type) {
                 break;
         }
     } catch (e) {
-        console.log('Аудио не поддерживается');
+        console.log('Аудио не поддерживается:', e);
     }
 }
 
@@ -1709,74 +1660,73 @@ function playWinSound(audioContext) {
 
 // Обработка ошибок
 function showError(message) {
+    if (!elements.errorModal || !elements.errorMessage) return;
+    
     elements.errorMessage.textContent = message;
     elements.errorModal.classList.remove('hidden');
 }
 
 // Адаптация размера canvas
 function resizeCanvas() {
-    const container = elements.gameContainer;
-    if (!container.classList.contains('hidden')) {
-        if (isMobile) {
-            // Для мобильных устройств
-            const headerHeight = document.querySelector('.game-header').offsetHeight;
-            const controlsHeight = mobileControls.offsetHeight;
-            const availableHeight = window.innerHeight - headerHeight - controlsHeight;
-            
-            canvas.style.width = '100%';
-            canvas.style.height = `${availableHeight}px`;
-            
-            // Обновляем размеры canvas
-            const scale = window.devicePixelRatio || 1;
-            canvas.width = canvas.offsetWidth * scale;
-            canvas.height = canvas.offsetHeight * scale;
-            
-            // Масштабируем контекст
-            ctx.scale(scale, scale);
-            
-            // Обновляем конфигурацию игры
-            CONFIG.WIDTH = canvas.offsetWidth;
-            CONFIG.HEIGHT = canvas.offsetHeight;
-        } else {
-            // Для десктопа
-            const sidePanel = document.querySelector('.side-panel');
-            const sidePanelWidth = sidePanel ? sidePanel.offsetWidth : 300;
-            const availableWidth = window.innerWidth - sidePanelWidth - 40;
-            const availableHeight = window.innerHeight - 80;
-            
-            const scaleX = availableWidth / CONFIG.WIDTH;
-            const scaleY = availableHeight / CONFIG.HEIGHT;
-            const scale = Math.min(scaleX, scaleY, 1.5);
-            
-            canvas.style.width = `${CONFIG.WIDTH * scale}px`;
-            canvas.style.height = `${CONFIG.HEIGHT * scale}px`;
-        }
+    if (!elements.gameContainer || elements.gameContainer.classList.contains('hidden')) {
+        return;
+    }
+    
+    if (isMobile) {
+        // Для мобильных устройств
+        const header = document.querySelector('.game-header');
+        const headerHeight = header ? header.offsetHeight : 60;
+        const controlsHeight = mobileControls ? mobileControls.offsetHeight : 200;
+        const availableHeight = window.innerHeight - headerHeight - controlsHeight;
+        
+        // Сохраняем соотношение сторон
+        const scale = Math.min(
+            window.innerWidth / CONFIG.WIDTH,
+            availableHeight / CONFIG.HEIGHT
+        );
+        
+        const scaledWidth = CONFIG.WIDTH * scale;
+        const scaledHeight = CONFIG.HEIGHT * scale;
+        
+        canvas.style.width = `${scaledWidth}px`;
+        canvas.style.height = `${scaledHeight}px`;
+        canvas.style.margin = '0 auto';
+        canvas.style.display = 'block';
+    } else {
+        // Для десктопа
+        const sidePanel = document.querySelector('.side-panel');
+        const sidePanelWidth = sidePanel ? sidePanel.offsetWidth : 300;
+        const availableWidth = window.innerWidth - sidePanelWidth - 40;
+        const availableHeight = window.innerHeight - 100;
+        
+        const scaleX = availableWidth / CONFIG.WIDTH;
+        const scaleY = availableHeight / CONFIG.HEIGHT;
+        const scale = Math.min(scaleX, scaleY, 1.5);
+        
+        canvas.style.width = `${CONFIG.WIDTH * scale}px`;
+        canvas.style.height = `${CONFIG.HEIGHT * scale}px`;
+        canvas.style.margin = '0 auto';
+        canvas.style.display = 'block';
     }
 }
 
 // Активация аудиоконтекста при первом взаимодействии
-window.addEventListener('touchstart', () => {
+document.addEventListener('click', () => {
     if (window.AudioContext && !window.audioContextActivated) {
-        const audioContext = new AudioContext();
-        if (audioContext.state === 'suspended') {
-            audioContext.resume();
+        try {
+            const audioContext = new AudioContext();
+            if (audioContext.state === 'suspended') {
+                audioContext.resume();
+            }
+            window.audioContextActivated = true;
+        } catch (e) {
+            console.log('Аудиоконтекст не поддерживается');
         }
-        window.audioContextActivated = true;
-    }
-}, { once: true });
-
-window.addEventListener('click', () => {
-    if (window.AudioContext && !window.audioContextActivated) {
-        const audioContext = new AudioContext();
-        if (audioContext.state === 'suspended') {
-            audioContext.resume();
-        }
-        window.audioContextActivated = true;
     }
 }, { once: true });
 
 // Экспорт для отладки
-window.game = {
+window.debugGame = {
     CONFIG,
     players,
     pages,
@@ -1785,7 +1735,8 @@ window.game = {
     isMobile,
     isHost,
     peer,
-    connections
+    connections,
+    gameState
 };
 
-console.log('Game initialized. Mobile:', isMobile);
+console.log('Игра инициализирована. Мобильный режим:', isMobile);
